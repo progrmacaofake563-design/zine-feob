@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galeria de Zines - FEOB</title>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        /* Container da galeria (Grid) */
+        #zines-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Estilo de cada Zine (Cartão) */
+        .zine-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .zine-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+
+        .zine-card a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .zine-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover; /* Corta a imagem para caber no quadrado sem esticar */
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .zine-icon {
+            font-size: 80px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .zine-title {
+            font-size: 14px;
+            font-weight: bold;
+            word-wrap: break-word;
+            color: #555;
+        }
+
+        .loading {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Galeria de Zines</h1>
+        <p>Explore nossa coleção abaixo</p>
+    </header>
+
+    <main id="zines-container">
+        <p class="loading">Carregando zines da galeria...</p>
+    </main>
+
+    <script>
+        // --- CONFIGURAÇÃO ---
+        const usuarioGitHub = 'progrmacaofake563-design';
+        const nomeRepositorio = 'zine-feob';
+        const nomePasta = 'zines';
+        // --------------------
+
+        const urlApi = `https://api.github.com/repos/${usuarioGitHub}/${nomeRepositorio}/contents/${nomePasta}?ref=main`;
+        const container = document.getElementById('zines-container');
+
+        fetch(urlApi)
+            .then(resposta => {
+                if (!resposta.ok) throw new Error('Erro ao buscar arquivos (Verifique se a pasta existe)');
+                return resposta.json();
+            })
+            .then(arquivos => {
+                // Remove a mensagem de carregamento
+                container.innerHTML = '';
+
+                // Filtra para pegar apenas arquivos (ignora subpastas)
+                const listaArquivos = arquivos.filter(item => item.type === 'file');
+
+                if (listaArquivos.length === 0) {
+                    container.innerHTML = '<p class="loading">Nenhum zine encontrado nesta pasta.</p>';
+                    return;
+                }
+
+                listaArquivos.forEach(arquivo => {
+                    const nome = arquivo.name;
+                    const urlDownload = arquivo.download_url;
+                    const extensao = nome.split('.').pop().toLowerCase();
+
+                    // Cria o elemento do cartão
+                    const card = document.createElement('div');
+                    card.className = 'zine-card';
+
+                    let conteudoVisual = '';
+
+                    // Verifica se é imagem ou outro tipo de arquivo
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extensao)) {
+                        conteudoVisual = `<img src="${urlDownload}" alt="${nome}">`;
+                    } else if (extensao === 'pdf') {
+                        conteudoVisual = `<span class="zine-icon">📄</span>`;
+                    } else {
+                        conteudoVisual = `<span class="zine-icon">📁</span>`;
+                    }
+
+                    card.innerHTML = `
+                        <a href="${urlDownload}" target="_blank">
+                            ${conteudoVisual}
+                            <div class="zine-title">${nome}</div>
+                        </a>
+                    `;
+
+                    container.appendChild(card);
+                });
+            })
+            .catch(erro => {
+                console.error(erro);
+                container.innerHTML = `<p class="loading">Erro: Não foi possível carregar os zines.<br>Detalhes: ${erro.message}</p>`;
+            });
+    </script>
+</body>
+</html>
