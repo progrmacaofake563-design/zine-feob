@@ -3,185 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galeria de Zines - FEOB</title>
+    <title>Zines FEOB - Leitura Imersiva</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+
+    <script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.js"></script>
 
     <style>
+        /* --- ESTILOS GERAIS --- */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f9;
+            font-family: 'Courier New', Courier, monospace; /* Fonte mais "zine" */
+            background-color: #2b2b2b; /* Fundo escuro para destacar o livro */
             margin: 0;
             padding: 20px;
-            color: #333;
+            color: #f0f0f0;
         }
 
-        h1 { text-align: center; color: #2c3e50; }
-        
+        header { text-align: center; margin-bottom: 40px; }
+        h1 { margin: 0; font-size: 2.5rem; letter-spacing: 2px; }
+        p.desc { color: #aaa; margin-top: 5px; }
+
+        /* --- GALERIA (CAPAS) --- */
         #galeria {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 30px;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 40px;
             max-width: 1200px;
-            margin: 40px auto;
+            margin: 0 auto;
         }
 
         .zine-card {
-            background: white;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: transparent;
             cursor: pointer;
-            transition: transform 0.2s;
+            perspective: 1000px; /* Prepara para efeito 3D */
             text-align: center;
         }
 
-        .zine-card:hover { transform: translateY(-5px); }
+        /* Efeito de "livro fechado" na estante */
+        .zine-cover-wrapper {
+            position: relative;
+            transition: transform 0.3s ease;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+            transform-style: preserve-3d;
+        }
 
-        canvas {
+        .zine-card:hover .zine-cover-wrapper {
+            transform: rotateY(-15deg) scale(1.05);
+            box-shadow: 10px 10px 20px rgba(0,0,0,0.7);
+        }
+
+        canvas.capa-thumb {
             width: 100%;
             height: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 10px;
+            display: block;
+            border-radius: 2px;
         }
 
-        .titulo {
-            font-size: 14px;
-            font-weight: bold;
-            text-transform: capitalize;
+        .zine-title {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #fff;
         }
 
-        /* MODAL */
-        #modal {
+        /* --- MODAL DO FLIPBOOK --- */
+        #modal-leitor {
             display: none;
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 1000;
-            flex-direction: column;
-            align-items: center;
+            background: rgba(10, 10, 10, 0.95); /* Fundo quase preto */
+            z-index: 2000;
             justify-content: center;
+            align-items: center;
+            flex-direction: column;
         }
 
-        #container-pdf {
-            width: 90%;
-            height: 90%;
-            background: #fff;
-            position: relative;
+        /* O Livro em si */
+        #book-wrapper {
+            width: auto;
+            height: 85vh; /* Altura do livro na tela */
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        iframe {
+        /* Classe usada pelo plugin para cada página */
+        .page-content {
+            background-color: white;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1); /* Sombra interna */
+            overflow: hidden;
+        }
+        
+        .page-content canvas {
             width: 100%;
             height: 100%;
-            border: none;
+            object-fit: contain;
         }
 
-        .fechar {
+        /* Controles */
+        .controls {
             position: absolute;
-            top: -35px;
-            right: 0;
-            color: white;
-            font-size: 20px;
+            bottom: 20px;
+            display: flex;
+            gap: 20px;
+            z-index: 2001;
+        }
+
+        .btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
             cursor: pointer;
             font-weight: bold;
-            background: none;
-            border: none;
+            text-transform: uppercase;
+            border-radius: 4px;
         }
+        .btn:hover { background: #ddd; }
+        .btn-close { background: #ff4444; color: white; position: absolute; top: 20px; right: 20px; }
+
+        .loading-text { font-size: 1.5rem; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
     </style>
 </head>
 <body>
 
-    <h1>Coleção de Zines</h1>
-    <div id="galeria">Carregando...</div>
+    <header>
+        <h1>ZINE FEOB</h1>
+        <p class="desc">Clique na capa para folhear</p>
+    </header>
 
-    <div id="modal">
-        <div id="container-pdf">
-            <button class="fechar" onclick="fechar()">FECHAR ✕</button>
-            <iframe id="iframe-pdf" src=""></iframe>
+    <div id="galeria">
+        <p class="loading-text" style="text-align:center; width:100%;">Carregando estante...</p>
+    </div>
+
+    <div id="modal-leitor">
+        <button class="btn btn-close" onclick="fecharLeitor()">X FECHAR</button>
+        
+        <div id="loader-livro" class="loading-text" style="display:none; color:white;">Montando o livro...</div>
+        
+        <div id="book-wrapper">
+            <div id="my-book"></div> 
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="livro.flipPrev()">❮ Anterior</button>
+            <button class="btn" onclick="livro.flipNext()">Próximo ❯</button>
         </div>
     </div>
 
     <script>
         // --- CONFIGURAÇÃO ---
-        const usuario = 'progrmacaofake563-design';
-        const repositorio = 'zine-feob';
-        const pasta = 'zines';
-        
-        // URL Base do GitHub Pages (O segredo para funcionar!)
-        const urlBaseSite = `https://${usuario}.github.io/${repositorio}/${pasta}/`;
+        const config = {
+            usuario: 'progrmacaofake563-design',
+            repo: 'zine-feob',
+            pasta: 'zines'
+        };
 
         const galeria = document.getElementById('galeria');
-        const modal = document.getElementById('modal');
-        const iframe = document.getElementById('iframe-pdf');
+        const modal = document.getElementById('modal-leitor');
+        const containerLivro = document.getElementById('my-book');
+        const loaderLivro = document.getElementById('loader-livro');
+        
+        let livro = null; // Variável global para controlar o flipbook
 
+        // 1. INICIALIZAÇÃO
         async function init() {
             try {
-                // 1. Pega a lista de arquivos via API
-                const resp = await fetch(`https://api.github.com/repos/${usuario}/${repositorio}/contents/${pasta}?ref=main`);
+                const resp = await fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.pasta}?ref=main`);
                 const arquivos = await resp.json();
                 
                 galeria.innerHTML = ''; 
-
                 const pdfs = arquivos.filter(a => a.name.toLowerCase().endsWith('.pdf'));
 
                 if (pdfs.length === 0) {
-                    galeria.innerHTML = '<p>Nenhum PDF encontrado.</p>';
-                    return;
+                    galeria.innerHTML = '<p>Nenhum PDF encontrado.</p>'; return;
                 }
 
-                // 2. Cria os cartões
-                pdfs.forEach(pdf => {
-                    // Aqui está a correção: Montamos o link do SITE, não do código
-                    const linkDoSite = urlBaseSite + pdf.name;
-                    criarCartao(pdf.name, linkDoSite);
-                });
-
+                // Cria as capas na estante
+                for (const pdf of pdfs) {
+                    criarCapaEstante(pdf);
+                }
             } catch (e) {
                 console.error(e);
-                galeria.innerHTML = '<p>Erro ao carregar lista.</p>';
+                galeria.innerHTML = '<p>Erro ao conectar no GitHub.</p>';
             }
         }
 
-        async function criarCartao(nome, urlPdf) {
+        // 2. CRIA A CAPA NA PÁGINA INICIAL
+        async function criarCapaEstante(pdfInfo) {
             const card = document.createElement('div');
             card.className = 'zine-card';
-            card.onclick = () => abrir(urlPdf);
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'zine-cover-wrapper';
 
             const canvas = document.createElement('canvas');
+            canvas.className = 'capa-thumb';
+            
             const titulo = document.createElement('div');
-            titulo.className = 'titulo';
-            titulo.innerText = nome.replace('.pdf', '').replace(/_/g, ' ');
+            titulo.className = 'zine-title';
+            titulo.innerText = pdfInfo.name.replace('.pdf', '').replace(/_/g, ' ');
 
-            card.appendChild(canvas);
+            wrapper.appendChild(canvas);
+            card.appendChild(wrapper);
             card.appendChild(titulo);
             galeria.appendChild(card);
 
-            // Gera a Capa
+            // Clique: Inicia o processo de abrir o livro
+            card.onclick = () => abrirFlipbook(pdfInfo.download_url);
+
+            // Renderiza apenas a capa (página 1)
             try {
-                const pdf = await pdfjsLib.getDocument(urlPdf).promise;
+                const pdf = await pdfjsLib.getDocument(pdfInfo.download_url).promise;
                 const page = await pdf.getPage(1);
                 const viewport = page.getViewport({ scale: 0.5 });
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            } catch (err) { console.error("Erro capa", err); }
+        }
+
+        // 3. LÓGICA DO FLIPBOOK (A MÁGICA)
+        async function abrirFlipbook(urlPdf) {
+            modal.style.display = 'flex';
+            loaderLivro.style.display = 'block';
+            containerLivro.innerHTML = ''; // Limpa livro anterior
+            document.body.style.overflow = 'hidden';
+
+            try {
+                // Baixa o PDF completo
+                const pdf = await pdfjsLib.getDocument(urlPdf).promise;
+                const totalPaginas = pdf.numPages;
+
+                // Cria o elemento HTML do livro
+                const bookElement = document.createElement('div');
+                bookElement.id = 'flipbook-instance';
+                containerLivro.appendChild(bookElement);
+
+                // Renderiza TODAS as páginas do PDF em Canvas (pode demorar um pouco em PDFs grandes)
+                for (let i = 1; i <= totalPaginas; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.5 }); // Qualidade HD para leitura
+
+                    // Cria container da página
+                    const divPage = document.createElement('div');
+                    divPage.className = 'page-content';
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Renderiza página
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    
+                    divPage.appendChild(canvas);
+                    bookElement.appendChild(divPage);
+                }
+
+                loaderLivro.style.display = 'none';
+
+                // --- INICIA A BIBLIOTECA STPAGEFLIP ---
+                // Verifica se é mobile ou desktop para ajustar tamanho
+                const isMobile = window.innerWidth < 768;
+                
+                livro = new St.PageFlip(bookElement, {
+                    width: isMobile ? 350 : 550, // Largura de UMA página
+                    height: isMobile ? 500 : 750, // Altura da página
+                    size: isMobile ? 'fixed' : 'stretch',
+                    minWidth: 300,
+                    maxWidth: 1000,
+                    minHeight: 400,
+                    maxHeight: 1200,
+                    maxShadowOpacity: 0.5, // Intensidade da sombra
+                    showCover: true,
+                    mobileScrollSupport: true 
+                });
+
+                livro.loadFromHTML(document.querySelectorAll('.page-content'));
+
             } catch (err) {
-                console.log("Erro na capa:", err);
+                console.error("Erro ao montar livro", err);
+                alert("Erro ao carregar este Zine.");
+                fecharLeitor();
             }
         }
 
-        function abrir(url) {
-            iframe.src = url;
-            modal.style.display = 'flex';
-        }
-
-        function fechar() {
+        function fecharLeitor() {
             modal.style.display = 'none';
-            iframe.src = '';
+            document.body.style.overflow = 'auto';
+            if (livro) {
+                livro.destroy(); // Limpa memória
+                livro = null;
+            }
+            containerLivro.innerHTML = '';
         }
 
         init();
