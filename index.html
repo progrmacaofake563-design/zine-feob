@@ -11,76 +11,68 @@
     </script>
 
     <style>
-        /* --- ESTILOS BÁSICOS --- */
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f9;
             margin: 0;
             padding: 20px;
             color: #333;
         }
 
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
-
-        /* --- GRADE DA GALERIA --- */
+        h1 { text-align: center; color: #2c3e50; }
+        
         #galeria {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 25px;
+            gap: 30px;
             max-width: 1200px;
-            margin: 0 auto;
+            margin: 40px auto;
         }
 
-        /* --- CARTÃO DO ZINE --- */
         .zine-card {
             background: white;
             border-radius: 10px;
             padding: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s;
             text-align: center;
         }
 
-        .zine-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
-        }
+        .zine-card:hover { transform: translateY(-5px); }
 
-        /* O Canvas é onde a "foto" da capa será desenhada */
         canvas {
             width: 100%;
             height: auto;
-            border-radius: 5px;
-            border: 1px solid #eee;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             margin-bottom: 10px;
         }
 
-        .titulo-zine {
+        .titulo {
             font-size: 14px;
             font-weight: bold;
-            word-wrap: break-word;
             text-transform: capitalize;
         }
 
-        /* --- LEITOR (MODAL) --- */
-        #modal-leitor {
+        /* MODAL */
+        #modal {
             display: none;
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
             background: rgba(0,0,0,0.9);
             z-index: 1000;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
         }
 
-        .container-iframe {
+        #container-pdf {
             width: 90%;
             height: 90%;
-            background: white;
+            background: #fff;
             position: relative;
-            border-radius: 8px;
         }
 
         iframe {
@@ -89,28 +81,27 @@
             border: none;
         }
 
-        .btn-fechar {
+        .fechar {
             position: absolute;
-            top: -40px;
+            top: -35px;
             right: 0;
             color: white;
-            font-size: 30px;
+            font-size: 20px;
             cursor: pointer;
             font-weight: bold;
+            background: none;
+            border: none;
         }
     </style>
 </head>
 <body>
 
     <h1>Coleção de Zines</h1>
+    <div id="galeria">Carregando...</div>
 
-    <div id="galeria">
-        <p style="text-align:center; width:100%;">Carregando biblioteca...</p>
-    </div>
-
-    <div id="modal-leitor">
-        <div class="container-iframe">
-            <span class="btn-fechar" onclick="fecharLeitor()">FECHAR &times;</span>
+    <div id="modal">
+        <div id="container-pdf">
+            <button class="fechar" onclick="fechar()">FECHAR ✕</button>
             <iframe id="iframe-pdf" src=""></iframe>
         </div>
     </div>
@@ -120,95 +111,80 @@
         const usuario = 'progrmacaofake563-design';
         const repositorio = 'zine-feob';
         const pasta = 'zines';
-        // --------------------
+        
+        // URL Base do GitHub Pages (O segredo para funcionar!)
+        const urlBaseSite = `https://${usuario}.github.io/${repositorio}/${pasta}/`;
 
         const galeria = document.getElementById('galeria');
-        const modal = document.getElementById('modal-leitor');
+        const modal = document.getElementById('modal');
         const iframe = document.getElementById('iframe-pdf');
 
-        // 1. Busca lista de arquivos
-        fetch(`https://api.github.com/repos/${usuario}/${repositorio}/contents/${pasta}?ref=main`)
-            .then(res => res.json())
-            .then(arquivos => {
-                galeria.innerHTML = ''; // Limpa mensagem de carregamento
+        async function init() {
+            try {
+                // 1. Pega a lista de arquivos via API
+                const resp = await fetch(`https://api.github.com/repos/${usuario}/${repositorio}/contents/${pasta}?ref=main`);
+                const arquivos = await resp.json();
+                
+                galeria.innerHTML = ''; 
 
-                // Filtra apenas arquivos que terminam com .pdf
-                const pdfs = arquivos.filter(arq => arq.name.toLowerCase().endsWith('.pdf'));
+                const pdfs = arquivos.filter(a => a.name.toLowerCase().endsWith('.pdf'));
 
                 if (pdfs.length === 0) {
-                    galeria.innerHTML = '<p>Nenhum PDF encontrado na pasta.</p>';
+                    galeria.innerHTML = '<p>Nenhum PDF encontrado.</p>';
                     return;
                 }
 
-                // Cria um cartão para cada PDF
+                // 2. Cria os cartões
                 pdfs.forEach(pdf => {
-                    criarCartaoZine(pdf.name, pdf.download_url);
+                    // Aqui está a correção: Montamos o link do SITE, não do código
+                    const linkDoSite = urlBaseSite + pdf.name;
+                    criarCartao(pdf.name, linkDoSite);
                 });
-            })
-            .catch(err => {
-                console.error(err);
-                galeria.innerHTML = '<p>Erro ao carregar zines.</p>';
-            });
 
-        // 2. Cria o visual e gera a capa
-        async function criarCartaoZine(nomeArquivo, urlPdf) {
-            // Elementos HTML
-            const card = document.createElement('div');
-            card.className = 'zine-card';
-            
-            const canvas = document.createElement('canvas'); // Onde a capa será desenhada
-            const titulo = document.createElement('div');
-            titulo.className = 'titulo-zine';
-            // Remove a extensão .pdf e substitui _ por espaço para ficar bonito
-            titulo.innerText = nomeArquivo.replace('.pdf', '').replace(/_/g, ' ');
-
-            card.appendChild(canvas);
-            card.appendChild(titulo);
-            
-            // Clique para abrir
-            card.onclick = () => abrirLeitor(urlPdf);
-            
-            galeria.appendChild(card);
-
-            // --- GERAÇÃO DA CAPA (PDF.js) ---
-            try {
-                // Carrega o documento PDF
-                const pdfCarregado = await pdfjsLib.getDocument(urlPdf).promise;
-                // Pega a página 1
-                const pagina = await pdfCarregado.getPage(1);
-                
-                // Define escala (tamanho da miniatura)
-                const viewport = pagina.getViewport({ scale: 0.5 });
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-
-                // Desenha a página no canvas
-                await pagina.render({
-                    canvasContext: canvas.getContext('2d'),
-                    viewport: viewport
-                }).promise;
-
-            } catch (erro) {
-                console.error("Erro ao gerar capa para: " + nomeArquivo, erro);
-                // Se der erro, desenha um quadrado cinza no lugar
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = "#ccc";
-                ctx.fillRect(0, 0, canvas.width, 300);
+            } catch (e) {
+                console.error(e);
+                galeria.innerHTML = '<p>Erro ao carregar lista.</p>';
             }
         }
 
-        // 3. Funções do Leitor
-        function abrirLeitor(url) {
-            iframe.src = url; // Carrega o PDF no iframe
-            modal.style.display = 'flex'; // Mostra a janela
-            document.body.style.overflow = 'hidden'; // Trava rolagem do fundo
+        async function criarCartao(nome, urlPdf) {
+            const card = document.createElement('div');
+            card.className = 'zine-card';
+            card.onclick = () => abrir(urlPdf);
+
+            const canvas = document.createElement('canvas');
+            const titulo = document.createElement('div');
+            titulo.className = 'titulo';
+            titulo.innerText = nome.replace('.pdf', '').replace(/_/g, ' ');
+
+            card.appendChild(canvas);
+            card.appendChild(titulo);
+            galeria.appendChild(card);
+
+            // Gera a Capa
+            try {
+                const pdf = await pdfjsLib.getDocument(urlPdf).promise;
+                const page = await pdf.getPage(1);
+                const viewport = page.getViewport({ scale: 0.5 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            } catch (err) {
+                console.log("Erro na capa:", err);
+            }
         }
 
-        function fecharLeitor() {
-            modal.style.display = 'none';
-            iframe.src = ''; // Limpa para não ficar pesado
-            document.body.style.overflow = 'auto'; // Destrava rolagem
+        function abrir(url) {
+            iframe.src = url;
+            modal.style.display = 'flex';
         }
+
+        function fechar() {
+            modal.style.display = 'none';
+            iframe.src = '';
+        }
+
+        init();
     </script>
 </body>
 </html>
